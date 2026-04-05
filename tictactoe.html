@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tic Tac Toe</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --border: #1e1e2e;
+    --accent-x: #ff3c5f;
+    --accent-o: #00e5ff;
+    --text: #e8e8f0;
+    --muted: #44445a;
+    --win-glow: #ffd600;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow-y: auto; 
+    padding: 40px 20px; 
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 8vw, 5.5rem);
+    letter-spacing: 0.12em;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--accent-x), var(--accent-o));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    font-size: 0.65rem;
+    letter-spacing: 0.35em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* Mode Toggle */
+  .mode-toggle {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .mode-btn {
+    padding: 8px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .mode-btn.active {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  /* Score Board */
+  .scores {
+    display: flex;
+    gap: 2px;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .score-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    min-width: 80px;
+    position: relative;
+    transition: border-color 0.3s;
+  }
+
+  .score-box.active-turn {
+    border-color: var(--accent-x);
+  }
+
+  .score-box.active-turn.o-turn {
+    border-color: var(--accent-o);
+  }
+
+  .score-box::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .score-box.active-turn::after {
+    background: var(--accent-x);
+    opacity: 1;
+  }
+
+  .score-box.active-turn.o-turn::after {
+    background: var(--accent-o);
+  }
+
+  .score-label {
+    color: var(--muted);
+    font-size: 0.6rem;
+    margin-bottom: 6px;
+  }
+
+  .score-label span.sym {
+    display: inline-block;
+    margin-right: 4px;
+  }
+
+  .score-label span.sym.x { color: var(--accent-x); }
+  .score-label span.sym.o { color: var(--accent-o); }
+
+  .score-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    line-height: 1;
+  }
+
+  .score-box:first-child .score-num { color: var(--accent-x); }
+  .score-box:last-child  .score-num { color: var(--accent-o); }
+  .score-box:nth-child(2) .score-num { color: var(--muted); font-size: 1.4rem; margin-top: 4px; }
+
+  /* Board */
+  .board-wrap {
+    position: relative;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3px;
+    background: var(--border);
+    border: 3px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .cell {
+    width: clamp(90px, 22vw, 130px);
+    height: clamp(90px, 22vw, 130px);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.15s;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.5rem, 7vw, 4rem);
+    user-select: none;
+  }
+
+  .cell:hover:not(.taken) {
+    background: #15151f;
+  }
+
+  .cell.taken { cursor: default; }
+
+  .cell .mark {
+    display: inline-block;
+    transform: scale(0);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .cell .mark.placed {
+    transform: scale(1);
+  }
+
+  .cell.x .mark { color: var(--accent-x); }
+  .cell.o .mark { color: var(--accent-o); }
+
+  .cell.winner {
+    animation: winPulse 0.6s ease forwards;
+  }
+
+  @keyframes winPulse {
+    0%   { background: var(--surface); }
+    50%  { background: #1a1600; }
+    100% { background: #131308; }
+  }
+
+  .cell.winner .mark {
+    filter: drop-shadow(0 0 10px var(--win-glow));
+    color: var(--win-glow) !important;
+  }
+
+  /* Status */
+  .status {
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+    min-height: 18px;
+    text-align: center;
+    transition: color 0.3s;
+  }
+
+  .status.win  { color: var(--win-glow); }
+  .status.draw { color: var(--muted); }
+
+  /* Buttons */
+  .actions { display: flex; gap: 8px; }
+
+  .btn {
+    padding: 10px 28px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+  }
+
+  .btn:hover {
+    background: var(--border);
+    border-color: var(--muted);
+  }
+
+  .btn.primary {
+    border-color: var(--accent-x);
+    color: var(--accent-x);
+  }
+  .btn.primary:hover {
+    background: rgba(255, 60, 95, 0.1);
+  }
+
+  /* Difficulty (AI mode) */
+  .diff-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .diff-row select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+  }
+
+  /* Thinking indicator */
+  .thinking {
+    display: none;
+    gap: 4px;
+    align-items: center;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    color: var(--accent-o);
+    text-transform: uppercase;
+  }
+  .thinking.visible { display: flex; }
+  .thinking-dot {
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--accent-o);
+    animation: dotBlink 1s infinite;
+  }
+  .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dotBlink {
+    0%, 80%, 100% { opacity: 0.2; }
+    40% { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Tic Tac Toe</h1>
+    <p class="subtitle">HTML · CSS · JavaScript</p>
+  </header>
+
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="btnPvP">2 Players</button>
+    <button class="mode-btn" id="btnAI">vs Computer</button>
+  </div>
+
+  <div class="diff-row" id="diffRow" style="display:none">
+    Difficulty
+    <select id="difficulty">
+      <option value="easy">Easy</option>
+      <option value="medium">Medium</option>
+      <option value="hard" selected>Hard</option>
+    </select>
+  </div>
+
+  <div class="scores">
+    <div class="score-box active-turn" id="scoreX">
+      <div class="score-label"><span class="sym x">✕</span>Player 1</div>
+      <div class="score-num" id="numX">0</div>
+    </div>
+    <div class="score-box" id="scoreDraw">
+      <div class="score-label">Draw</div>
+      <div class="score-num" id="numD">0</div>
+    </div>
+    <div class="score-box" id="scoreO">
+      <div class="score-label"><span class="sym o">○</span>Player 2</div>
+      <div class="score-num" id="numO">0</div>
+    </div>
+  </div>
+
+  <div class="board-wrap">
+    <div class="board" id="board">
+      <div class="cell" data-i="0"><span class="mark"></span></div>
+      <div class="cell" data-i="1"><span class="mark"></span></div>
+      <div class="cell" data-i="2"><span class="mark"></span></div>
+      <div class="cell" data-i="3"><span class="mark"></span></div>
+      <div class="cell" data-i="4"><span class="mark"></span></div>
+      <div class="cell" data-i="5"><span class="mark"></span></div>
+      <div class="cell" data-i="6"><span class="mark"></span></div>
+      <div class="cell" data-i="7"><span class="mark"></span></div>
+      <div class="cell" data-i="8"><span class="mark"></span></div>
+    </div>
+  </div>
+
+  <div class="thinking" id="thinking">
+    <div class="thinking-dot"></div>
+    <div class="thinking-dot"></div>
+    <div class="thinking-dot"></div>
+    Thinking
+  </div>
+
+  <div class="status" id="status">Player 1's turn</div>
+
+  <div class="actions">
+    <button class="btn primary" id="btnReset">New Game</button>
+    <button class="btn" id="btnClear">Reset Scores</button>
+  </div>
+</div>
+
+<script>
+  const WINS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  const cells = document.querySelectorAll('.cell');
+  const statusEl = document.getElementById('status');
+  const numX = document.getElementById('numX');
+  const numO = document.getElementById('numO');
+  const numD = document.getElementById('numD');
+  const scoreXBox = document.getElementById('scoreX');
+  const scoreOBox = document.getElementById('scoreO');
+  const thinkingEl = document.getElementById('thinking');
+  const diffRow = document.getElementById('diffRow');
+  const diffSel = document.getElementById('difficulty');
+  const scoreOLabel = scoreOBox.querySelector('.score-label');
+
+  let board, current, gameOver, vsAI, scores;
+
+  function init() {
+    vsAI = false;
+    scores = { X: 0, O: 0, D: 0 };
+    resetGame();
+  }
+
+  function resetGame(keepScores = true) {
+    board = Array(9).fill(null);
+    current = 'X';
+    gameOver = false;
+    cells.forEach(c => {
+    c.className = 'cell';
+    c.querySelector('.mark').textContent = '';
+    c.querySelector('.mark').className = 'mark';
+    });
+    statusEl.className = 'status';
+    thinkingEl.classList.remove('visible');
+    if (!keepScores) {
+      scores = { X: 0, O: 0, D: 0 };
+      numX.textContent = numO.textContent = numD.textContent = 0;
+    }
+    updateTurnIndicator();
+    updateStatus();
+}
+
+  function updateTurnIndicator() {
+    scoreXBox.classList.toggle('active-turn', current === 'X' && !gameOver);
+    scoreOBox.classList.toggle('active-turn', current === 'O' && !gameOver);
+    scoreOBox.classList.toggle('o-turn', current === 'O' && !gameOver);
+    scoreXBox.classList.remove('o-turn');
+  }
+
+  function updateStatus(msg, cls) {
+    statusEl.textContent = msg !== undefined ? msg : (current === 'X' ? "Player 1's turn" : (vsAI ? "Computer's turn" : "Player 2's turn"));
+    if (cls) statusEl.className = 'status ' + cls;
+  }
+
+  function place(i, player) {
+    board[i] = player;
+    const cell = cells[i];
+    cell.classList.add('taken', player.toLowerCase());
+    const mark = cell.querySelector('.mark');
+    mark.textContent = player === 'X' ? '✕' : '○';
+    requestAnimationFrame(() => mark.classList.add('placed'));
+  }
+
+  function checkWin(b, p) {
+    return WINS.find(w => w.every(i => b[i] === p)) || null;
+  }
+
+  function handleClick(i) {
+    if (gameOver || board[i] || (vsAI && current === 'O')) return;
+    place(i, current); 
+    const win = checkWin(board, current);
+    if (win) { endGame(current, win); return; }
+    if (board.every(Boolean)) { endGame(null); return; }
+    current = current === 'X' ? 'O' : 'X';
+    updateTurnIndicator();
+    if (vsAI && current === 'O') {
+    updateStatus('', '');
+    thinkingEl.classList.add('visible');
+    setTimeout(() => { aiMove(); }, 400 + Math.random() * 300);
+  } else {
+    updateStatus();
+  }
+}
+
+  function aiMove() {
+    const diff = diffSel.value;
+    let idx;
+    if (diff === 'easy') {
+      idx = randomMove();
+    } else if (diff === 'medium') {
+      idx = Math.random() < 0.5 ? bestMove() : randomMove();
+    } else {
+      idx = bestMove();
+    }
+    thinkingEl.classList.remove('visible');
+    place(idx, 'O');
+    const win = checkWin(board, 'O');
+    if (win) { endGame('O', win); return; }
+    if (board.every(Boolean)) { endGame(null); return; }
+    current = 'X';
+    updateTurnIndicator();
+    updateStatus();
+  }
+
+  function randomMove() {
+    const empty = board.map((v,i)=>v?null:i).filter(v=>v!==null);
+    return empty[Math.floor(Math.random()*empty.length)];
+  }
+
+  function bestMove() {
+    let best = -Infinity, move = -1;
+    for (let i = 0; i < 9; i++) {
+      if (!board[i]) {
+        board[i] = 'O';
+        const v = minimax(board, 0, false, -Infinity, Infinity);
+        board[i] = null;
+        if (v > best) { best = v; move = i; }
+      }
+    }
+    return move;
+  }
+
+  function minimax(b, depth, isMax, alpha, beta) {
+    if (checkWin(b,'O')) return 10 - depth;
+    if (checkWin(b,'X')) return depth - 10;
+    if (b.every(Boolean)) return 0;
+    if (isMax) {
+      let best = -Infinity;
+      for (let i = 0; i < 9; i++) {
+        if (!b[i]) {
+          b[i]='O'; best=Math.max(best,minimax(b,depth+1,false,alpha,beta)); b[i]=null;
+          alpha=Math.max(alpha,best); if(beta<=alpha) break;
+        }
+      }
+      return best;
+    } else {
+      let best = Infinity;
+      for (let i = 0; i < 9; i++) {
+        if (!b[i]) {
+          b[i]='X'; best=Math.min(best,minimax(b,depth+1,true,alpha,beta)); b[i]=null;
+          beta=Math.min(beta,best); if(beta<=alpha) break;
+        }
+      }
+      return best;
+    }
+  }
+
+  function endGame(winner, winLine) {
+    gameOver = true;
+    scoreXBox.classList.remove('active-turn');
+    scoreOBox.classList.remove('active-turn','o-turn');
+    thinkingEl.classList.remove('visible');
+    if (winner) {
+      winLine.forEach(i => cells[i].classList.add('winner'));
+      scores[winner]++;
+      numX.textContent = scores.X;
+      numO.textContent = scores.O;
+      const name = winner === 'X' ? 'Player 1' : (vsAI ? 'Computer' : 'Player 2');
+      updateStatus(`${name} wins!`, 'win');
+    } else {
+      scores.D++;
+      numD.textContent = scores.D;
+      updateStatus("It's a draw", 'draw');
+    }
+  }
+
+  cells.forEach(c => c.addEventListener('click', () => handleClick(+c.dataset.i)));
+  document.getElementById('btnReset').addEventListener('click', () => resetGame(true));
+  document.getElementById('btnClear').addEventListener('click', () => resetGame(false));
+
+  document.getElementById('btnPvP').addEventListener('click', function() {
+    if (vsAI === false) return; 
+    vsAI = false;
+    this.classList.add('active');
+    document.getElementById('btnAI').classList.remove('active');
+    diffRow.style.display = 'none';
+    scoreOLabel.innerHTML = '<span class="sym o">○</span>Player 2';
+    resetGame(false);
+  });
+
+  document.getElementById('btnAI').addEventListener('click', function() {
+    if (vsAI === true) return; 
+    vsAI = true;
+    this.classList.add('active');
+    document.getElementById('btnPvP').classList.remove('active');
+    diffRow.style.display = 'flex';
+    scoreOLabel.innerHTML = '<span class="sym o">○</span>Computer';
+    resetGame(false); 
+  });
+
+  init();
+</script>
+</body>
+</html>
